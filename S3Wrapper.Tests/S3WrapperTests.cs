@@ -129,6 +129,22 @@ public class S3WrapperTests : IAsyncLifetime
         Assert.Contains(fileName, _eventFiles);
     }
 
+    [Fact]
+    public async Task WriteToExistingFile_ThrowsException()
+    {
+        // Arrange
+        var fileName = "existing-file.txt";
+        var data = new byte[] { 1, 2, 3, 4 };
+        await _s3Wrapper.WriteAsync(fileName, data);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _s3Wrapper.WriteAsync(fileName, data));
+        
+        Assert.Contains(fileName, exception.Message);
+        Assert.Contains(_fixture.BucketName, exception.Message);
+    }
+
     private class TestObject
     {
         public string Name { get; set; } = string.Empty;

@@ -113,8 +113,31 @@ namespace S3Wrapper
             _monitoringCts = null;
         }
 
+        private async Task<bool> FileExistsAsync(string fileName)
+        {
+            try
+            {
+                var request = new GetObjectMetadataRequest
+                {
+                    BucketName = _bucketName,
+                    Key = fileName
+                };
+                await _s3Client.GetObjectMetadataAsync(request);
+                return true;
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return false;
+            }
+        }
+
         public async Task WriteAsync(string fileName, byte[] data)
         {
+            if (await FileExistsAsync(fileName))
+            {
+                throw new InvalidOperationException($"File '{fileName}' already exists in bucket '{_bucketName}'");
+            }
+
             using var stream = new MemoryStream(data);
             var request = new PutObjectRequest
             {
@@ -129,6 +152,11 @@ namespace S3Wrapper
 
         public async Task WriteAsync<T>(string fileName, T obj)
         {
+            if (await FileExistsAsync(fileName))
+            {
+                throw new InvalidOperationException($"File '{fileName}' already exists in bucket '{_bucketName}'");
+            }
+
             var json = JsonSerializer.Serialize(obj);
             var data = System.Text.Encoding.UTF8.GetBytes(json);
             await WriteAsync(fileName, data);
@@ -136,6 +164,11 @@ namespace S3Wrapper
 
         public async Task WriteLargeFileAsync(string fileName, Stream stream)
         {
+            if (await FileExistsAsync(fileName))
+            {
+                throw new InvalidOperationException($"File '{fileName}' already exists in bucket '{_bucketName}'");
+            }
+
             // Initiate multipart upload
             var initiateRequest = new InitiateMultipartUploadRequest
             {
