@@ -13,6 +13,7 @@ A .NET 8 wrapper for S3-compatible storage (AWS S3 and MinIO) that provides simp
 - Dependency Injection support
 - MinIO-specific configuration support
 - Large file support (multipart upload and streaming)
+- Comprehensive logging support
 
 ## Installation
 
@@ -21,6 +22,7 @@ Add the required NuGet packages to your project:
 ```bash
 dotnet add package AWSSDK.S3
 dotnet add package Microsoft.Extensions.DependencyInjection
+dotnet add package Microsoft.Extensions.Logging.Abstractions
 ```
 
 ## Usage
@@ -47,7 +49,7 @@ var credentials = new BasicAWSCredentials("minioadmin", "minioadmin");
 var s3Client = new AmazonS3Client(credentials, config);
 
 // Create the wrapper instance
-var s3Wrapper = new S3Wrapper("your-bucket-name", s3Client);
+var s3Wrapper = new S3Wrapper("your-bucket-name", s3Client, logger);
 
 // Subscribe to new file events
 s3Wrapper.NewFileEvent += (sender, fileName) => 
@@ -94,6 +96,14 @@ await responseStream.CopyToAsync(outputStream);
 // In your Program.cs or Startup.cs
 public void ConfigureServices(IServiceCollection services)
 {
+    // Configure logging
+    services.AddLogging(logging =>
+    {
+        logging.AddConsole();
+        logging.AddDebug();
+        // Add other logging providers as needed
+    });
+
     // Register S3Wrapper with MinIO configuration
     services.AddS3Wrapper(
         bucketName: "your-bucket-name",
@@ -108,10 +118,12 @@ public void ConfigureServices(IServiceCollection services)
 public class MyService
 {
     private readonly IS3Wrapper _s3Wrapper;
+    private readonly ILogger<MyService> _logger;
 
-    public MyService(IS3Wrapper s3Wrapper)
+    public MyService(IS3Wrapper s3Wrapper, ILogger<MyService> logger)
     {
         _s3Wrapper = s3Wrapper;
+        _logger = logger;
     }
 
     public async Task InitializeAsync()
@@ -137,6 +149,32 @@ public class MyService
         await _s3Wrapper.StopMonitoringAsync();
     }
 }
+```
+
+## Logging
+
+The S3Wrapper includes comprehensive logging support:
+
+- Operation start and end logging
+- Success and error logging
+- Detailed exception information
+- Structured logging with parameters
+- Different log levels (Information, Error, Debug)
+
+Logging is performed for:
+- File operations (read/write)
+- Object operations
+- Large file operations
+- Bucket monitoring
+- Error conditions
+- Event notifications
+
+Example log output:
+```
+info: S3Wrapper.S3Wrapper[0]
+      Starting write operation for file test.txt in bucket my-bucket
+info: S3Wrapper.S3Wrapper[0]
+      Successfully wrote file test.txt to bucket my-bucket
 ```
 
 ## MinIO Configuration
@@ -179,4 +217,5 @@ The S3Wrapper is thread-safe because:
 - .NET 8.0 or later
 - AWS SDK for .NET
 - MinIO server (or any S3-compatible storage)
-- Microsoft.Extensions.DependencyInjection (for DI support) 
+- Microsoft.Extensions.DependencyInjection (for DI support)
+- Microsoft.Extensions.Logging.Abstractions (for logging support) 
